@@ -14,6 +14,7 @@ A 7v7 football matchmaking mobile app built with React Native + Expo + Firebase.
    cd ballers
 
 2. Install dependencies
+   npm install -g expo-cli
    npm install
 
 3. Start the app
