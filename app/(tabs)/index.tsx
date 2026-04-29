@@ -1,114 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
-import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { auth, db } from '../../lib/firebase';
+
+const mockUser = { username: 'Baller', ovr: 70, wins: 0, draws: 0, losses: 0 };
 
 export default function HomeScreen() {
-  const [userData, setUserData] = useState<any>(null);
   const [activeMatch, setActiveMatch] = useState<any>(null);
 
-  useEffect(() => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
-
-    const unsubUser = onSnapshot(doc(db, 'users', uid), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        setUserData(data);
-        if (data.activeMatchId) {
-          getDoc(doc(db, 'matches', data.activeMatchId)).then((matchSnap) => {
-            if (matchSnap.exists()) setActiveMatch({ id: matchSnap.id, ...matchSnap.data() });
-          });
-        } else {
-          setActiveMatch(null);
-        }
-      }
-    });
-
-    return () => unsubUser();
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(checkExpiredMatch, 60000);
-    return () => clearInterval(interval);
-  }, [activeMatch]);
-
-  const joinMatch = async () => {
-    const uid = auth.currentUser?.uid;
-    if (!uid || !userData) return;
-
-    const matchSnap = await getDocs(collection(db, 'matches'));
-    const openMatch = matchSnap.docs
-      .map(d => ({ id: d.id, ...d.data() } as any))
-      .find(m => m.status === 'waiting' && m.players.length < 14);
-
-    if (openMatch) {
-      const updatedPlayers = [...openMatch.players, uid];
-      await updateDoc(doc(db, 'matches', openMatch.id), {
-        players: updatedPlayers,
-        playersJoined: updatedPlayers.length,
-      });
-      await updateDoc(doc(db, 'users', uid), {
-        activeMatchId: openMatch.id,
-      });
-    } else {
-      const matchId = `match_${Date.now()}`;
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-      await setDoc(doc(db, 'matches', matchId), {
-        id: matchId,
-        location: 'Al Nasr Club, Muscat',
-        date: 'Today',
-        time: '9:00 PM',
-        totalPlayers: 14,
-        playersJoined: 1,
-        players: [uid],
-        status: 'waiting',
-        expiresAt,
-        createdAt: new Date(),
-      });
-      await updateDoc(doc(db, 'users', uid), {
-        activeMatchId: matchId,
-      });
-    }
-  };
-
-  const leaveMatch = async () => {
-    const uid = auth.currentUser?.uid;
-    if (!uid || !activeMatch) return;
-
-    const updatedPlayers = activeMatch.players.filter((p: string) => p !== uid);
-
-    if (updatedPlayers.length === 0) {
-      await deleteDoc(doc(db, 'matches', activeMatch.id));
-    } else {
-      await updateDoc(doc(db, 'matches', activeMatch.id), {
-        players: updatedPlayers,
-        playersJoined: updatedPlayers.length,
-      });
-    }
-
-    await updateDoc(doc(db, 'users', uid), {
-      activeMatchId: null,
+  const joinMatch = () => {
+    setActiveMatch({
+      id: 'match_demo',
+      location: 'Al Nasr Club, Muscat',
+      date: 'Today',
+      time: '9:00 PM',
+      playersJoined: 1,
+      status: 'waiting',
     });
   };
 
-  const checkExpiredMatch = async () => {
-    if (!activeMatch) return;
-    const now = new Date();
-    const expiresAt = activeMatch.expiresAt?.toDate();
-    if (!expiresAt) return;
-
-    if (now >= expiresAt) {
-      if (activeMatch.playersJoined >= 10) {
-        await updateDoc(doc(db, 'matches', activeMatch.id), { status: 'confirmed' });
-      } else {
-        for (const playerId of activeMatch.players) {
-          await updateDoc(doc(db, 'users', playerId), { activeMatchId: null });
-        }
-        await updateDoc(doc(db, 'matches', activeMatch.id), { status: 'cancelled' });
-      }
-    }
+  const leaveMatch = () => {
+    setActiveMatch(null);
   };
 
   return (
@@ -131,7 +42,7 @@ export default function HomeScreen() {
 
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Welcome back, {userData?.username ?? 'Baller'}</Text>
+            <Text style={styles.greeting}>Welcome back, {mockUser.username}</Text>
             <Text style={styles.headTitle}>Ready to play?</Text>
           </View>
           <TouchableOpacity style={styles.bell}>
@@ -141,22 +52,22 @@ export default function HomeScreen() {
 
         <View style={styles.statsCard}>
           <View style={styles.statBox}>
-            <Text style={styles.statVal}>{userData?.ovr ?? '-'}</Text>
+            <Text style={styles.statVal}>{mockUser.ovr}</Text>
             <Text style={styles.statLab}>OVR</Text>
           </View>
           <View style={styles.statDiv} />
           <View style={styles.statBox}>
-            <Text style={styles.statVal}>{userData?.wins ?? '-'}</Text>
+            <Text style={styles.statVal}>{mockUser.wins}</Text>
             <Text style={styles.statLab}>Wins</Text>
           </View>
           <View style={styles.statDiv} />
           <View style={styles.statBox}>
-            <Text style={styles.statVal}>{userData?.draws ?? '-'}</Text>
+            <Text style={styles.statVal}>{mockUser.draws}</Text>
             <Text style={styles.statLab}>Draws</Text>
           </View>
           <View style={styles.statDiv} />
           <View style={styles.statBox}>
-            <Text style={styles.statVal}>{userData?.losses ?? '-'}</Text>
+            <Text style={styles.statVal}>{mockUser.losses}</Text>
             <Text style={styles.statLab}>Losses</Text>
           </View>
         </View>

@@ -1,42 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { sendEmailVerification } from 'firebase/auth';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { auth } from '../lib/firebase';
 
 export default function VerificationScreen() {
   const [loading, setLoading] = useState(false);
   const [resent, setResent] = useState(false);
   const [error, setError] = useState('');
 
-  const checkVerification = async () => {
-    setError('');
+  const checkVerification = () => {
     setLoading(true);
-    try {
-      await auth.currentUser?.reload();
-      if (auth.currentUser?.emailVerified) {
-        router.push('/questions' as any);
-      } else {
-        setError('Email not verified yet. Check your inbox.');
-      }
-    } catch (err) {
-      setError('Something went wrong. Try again.');
-    } finally {
-      setLoading(false);
-    }
+    router.push('/questions' as any);
+    setLoading(false);
   };
 
-  const resendEmail = async () => {
-    try {
-      if (auth.currentUser) {
-        await sendEmailVerification(auth.currentUser);
-        setResent(true);
-      }
-    } catch (err) {
-      setError('Could not resend email. Try again.');
-    }
+  const resendEmail = () => {
+    setResent(true);
   };
 
   return (
@@ -59,10 +39,7 @@ export default function VerificationScreen() {
 
           <Text style={styles.title}>Check Your Email</Text>
           <Text style={styles.subtitle}>
-            We sent a verification link to{'\n'}
-            <Text style={{ color: 'white', fontWeight: '700' }}>
-              {auth.currentUser?.email}
-            </Text>
+            We sent a verification link to your email address.
           </Text>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}

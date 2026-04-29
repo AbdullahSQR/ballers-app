@@ -1,9 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { doc, updateDoc } from 'firebase/firestore';
 import { useState } from 'react';
 import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { auth, db } from '../lib/firebase';
 
 const roles: { [key: string]: { question: string; options: { name: string; description: string }[] } } = {
   Goalkeeper: {
@@ -131,22 +129,6 @@ export default function QuestionsScreen() {
     setSelectedAnswer(null);
 
     if (currentQuestion + 1 === questions.length) {
-      const uid = auth.currentUser?.uid;
-      if (uid) {
-        await updateDoc(doc(db, 'users', uid), {
-          position: answers[0],
-          playstyle: answers[1],
-          skillLevel: answers[2],
-          frequency: answers[3],
-          gameType: answers[4],
-          availability: answers[5],
-          preferredTime: answers[6],
-          travelDistance: answers[7],
-          playerPreference: answers[8],
-          goal: answers[9],
-          onboardingDone: true,
-        });
-      }
       router.push('/(tabs)' as any);
     } else {
       setCurrentQuestion(currentQuestion + 1);

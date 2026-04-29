@@ -1,9 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { auth } from '../lib/firebase';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
@@ -20,20 +18,8 @@ export default function SignInScreen() {
     }
 
     setLoading(true);
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-      router.push('/(tabs)');
-    } catch (err: any) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        setError('Invalid email or password.');
-      } else if (err.code === 'auth/invalid-email') {
-        setError('Please enter a valid email.');
-      } else {
-        setError('Something went wrong. Try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
+    router.push('/(tabs)');
+    setLoading(false);
   };
 
   return (

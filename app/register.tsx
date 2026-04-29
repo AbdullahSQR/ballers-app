@@ -1,10 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { auth, db } from '../lib/firebase';
 
 
 export default function RegisterScreen() {
@@ -35,33 +32,8 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
-    try {
-      const result = await createUserWithEmailAndPassword(auth, email, pass);
-      await setDoc(doc(db, 'users', result.user.uid), {
-        username: user,
-        email,
-        dob: `${day}/${month}/${year}`,
-        ovr: 70,
-        wins: 0,
-        draws: 0,
-        losses: 0,
-        level: 1,
-        xp: 0,
-        createdAt: new Date(),
-      });
-      await sendEmailVerification(result.user);
-      router.push('/verification');
-    } catch (err: any) {
-      if (err.code === 'auth/email-already-in-use') {
-        setError('This email is already registered.');
-      } else if (err.code === 'auth/invalid-email') {
-        setError('Please enter a valid email.');
-      } else {
-        setError('Something went wrong. Try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
+    router.push('/verification');
+    setLoading(false);
   };
 
   return (

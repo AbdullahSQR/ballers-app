@@ -1,11 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { auth, db } from '../../lib/firebase';
+
+const mockUser = { username: 'Baller', ovr: 70, level: 1, xp: 0, wins: 0, draws: 0, losses: 0 };
 
 const achievements = [
   { id: 1, title: 'First Blood', description: 'Won your first match', icon: 'football', rarity: 'Common', color: '#aaa', unlockRate: 82 },
@@ -23,18 +21,7 @@ const sorted = [...achievements].sort(
 );
 
 export default function ProfileScreen() {
-  const [userData, setUserData] = useState<any>(null);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const uid = auth.currentUser?.uid;
-      if (uid) {
-        const snap = await getDoc(doc(db, 'users', uid));
-        if (snap.exists()) setUserData(snap.data());
-      }
-    };
-    fetchUser();
-  }, []);
+  const userData = mockUser;
 
   return (
     <LinearGradient colors={['#2a2a2a', '#000000']} style={styles.container}>
@@ -47,10 +34,7 @@ export default function ProfileScreen() {
 
         <View style={styles.header}>
           <Text style={styles.headTitle}>Profile</Text>
-          <TouchableOpacity style={styles.settingsBtn} onPress={async () => {
-            await signOut(auth);
-            router.replace('/');
-          }}>
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.replace('/')}>
             <Ionicons name="settings-outline" size={22} color="white" />
           </TouchableOpacity>
         </View>
@@ -65,36 +49,36 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.name}>{userData?.username ?? '-'}</Text>
-          <Text style={styles.uid}>ID: {auth.currentUser?.uid.slice(0, 6).toUpperCase() ?? '-'}</Text>
+          <Text style={styles.name}>{userData.username}</Text>
+          <Text style={styles.uid}>ID: DEMO</Text>
 
           <View style={styles.ovrBadge}>
-            <Text style={styles.ovr}>{userData?.ovr ?? 70} OVR</Text>
+            <Text style={styles.ovr}>{userData.ovr} OVR</Text>
           </View>
 
           <View style={styles.levelWrap}>
             <View style={styles.levelRow}>
-              <Text style={styles.level}>Level {userData?.level ?? 1}</Text>
-              <Text style={styles.xp}>{userData?.xp ?? 0}/100 XP</Text>
+              <Text style={styles.level}>Level {userData.level}</Text>
+              <Text style={styles.xp}>{userData.xp}/100 XP</Text>
             </View>
             <View style={styles.progBack}>
-              <View style={[styles.progFill, { width: `${((userData?.xp ?? 0) / 100) * 100}%` }]} />
+              <View style={[styles.progFill, { width: `${(userData.xp / 100) * 100}%` }]} />
             </View>
           </View>
 
           <View style={styles.stats}>
             <View style={styles.statBox}>
-              <Text style={styles.statVal}>{userData?.wins ?? 0}</Text>
+              <Text style={styles.statVal}>{userData.wins}</Text>
               <Text style={styles.statLab}>Wins</Text>
             </View>
             <View style={styles.statDiv} />
             <View style={styles.statBox}>
-              <Text style={styles.statVal}>{userData?.draws ?? 0}</Text>
+              <Text style={styles.statVal}>{userData.draws}</Text>
               <Text style={styles.statLab}>Draws</Text>
             </View>
             <View style={styles.statDiv} />
             <View style={styles.statBox}>
-              <Text style={styles.statVal}>{userData?.losses ?? 0}</Text>
+              <Text style={styles.statVal}>{userData.losses}</Text>
               <Text style={styles.statLab}>Losses</Text>
             </View>
           </View>
