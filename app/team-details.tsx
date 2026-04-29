@@ -62,15 +62,30 @@ const teamsData: { [key: string]: Team } = {
 };
 
 export default function TeamDetailsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const team = teamsData[id];
 
   if (!team) {
     return (
       <LinearGradient colors={['#2a2a2a', '#000000']} style={styles.container}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: 'white' }}>Team not found</Text>
-        </View>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Text style={styles.back}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.teamHeader}>
+            <View style={styles.teamIcon}>
+              <Ionicons name="shield" size={40} color="white" />
+            </View>
+            <Text style={styles.teamName}>{name ?? 'New Team'}</Text>
+            <View style={styles.capBadge}><Text style={styles.capBadgeText}>Captain</Text></View>
+            <Text style={styles.formed}>Just created</Text>
+          </View>
+          <View style={styles.emptyTeam}>
+            <Ionicons name="people-outline" size={44} color="#333" />
+            <Text style={styles.emptyTitle}>No members yet</Text>
+            <Text style={styles.emptySub}>Go back to your team and invite players to get started.</Text>
+          </View>
+        </ScrollView>
       </LinearGradient>
     );
   }
@@ -394,5 +409,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#ff6b6b',
+  },
+  emptyTeam: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontWeight: '800',
+    color: '#555',
+    fontSize: 18,
+  },
+  emptySub: {
+    color: '#444',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 16,
   },
 })

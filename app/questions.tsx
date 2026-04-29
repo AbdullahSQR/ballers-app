@@ -67,7 +67,7 @@ const questions = [
     type: 'standard',
   },
   {
-    question: 'Will be Set later!',
+    question: 'What time of day do you prefer to play?',
     options: ['Morning', 'Afternoon', 'Evening'],
     type: 'standard',
   },
