@@ -44,6 +44,7 @@ export default function TeamDetailsScreen() {
   const [inviteDone, setInviteDone] = useState(false);
 
   const [showLeave, setShowLeave] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   const closeInvite = () => { setShowInvite(false); setInviteUsername(''); setInvitePosition('Midfielder'); setInviteDone(false); };
 
@@ -132,7 +133,7 @@ export default function TeamDetailsScreen() {
           </View>
           <View style={styles.memList}>
             {team.members.map((member) => (
-              <View key={member.id} style={styles.memRow}>
+              <TouchableOpacity key={member.id} style={styles.memRow} activeOpacity={0.7} onPress={() => setSelectedMember(member)}>
                 <View style={styles.memAvatar}>
                   <Ionicons name="person" size={18} color="white" />
                 </View>
@@ -144,7 +145,7 @@ export default function TeamDetailsScreen() {
                   <Text style={styles.memPos}>{member.position}</Text>
                 </View>
                 <Text style={styles.memOvr}>{member.ovr} OVR</Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -246,6 +247,48 @@ export default function TeamDetailsScreen() {
         </View>
       </Modal>
 
+      {/* Member Card Modal */}
+      <Modal visible={!!selectedMember} transparent animationType="slide">
+        <View style={styles.overlay}>
+          <View style={[styles.sheet, { alignItems: 'center' }]}>
+            <View style={styles.handle} />
+            {selectedMember && (
+              <>
+                <View style={styles.memberCardAvatar}>
+                  <Ionicons name="person" size={36} color="white" />
+                  {selectedMember.captain && (
+                    <View style={styles.captainBadge}>
+                      <Ionicons name="star" size={10} color="#FFD700" />
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.sheetTitle}>{selectedMember.name}</Text>
+                <Text style={styles.sheetSub}>{selectedMember.position}</Text>
+                <View style={styles.memberCardStats}>
+                  <View style={styles.memberCardStat}>
+                    <Text style={styles.memberCardVal}>{selectedMember.ovr}</Text>
+                    <Text style={styles.memberCardLab}>OVR</Text>
+                  </View>
+                  <View style={styles.statDiv} />
+                  <View style={styles.memberCardStat}>
+                    <Text style={styles.memberCardVal}>{POS_SHORT[selectedMember.position]}</Text>
+                    <Text style={styles.memberCardLab}>Position</Text>
+                  </View>
+                  <View style={styles.statDiv} />
+                  <View style={styles.memberCardStat}>
+                    <Text style={styles.memberCardVal}>{selectedMember.captain ? 'Yes' : 'No'}</Text>
+                    <Text style={styles.memberCardLab}>Captain</Text>
+                  </View>
+                </View>
+                <TouchableOpacity style={[styles.secBtn, { width: '100%' }]} onPress={() => setSelectedMember(null)}>
+                  <Text style={styles.secText}>Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
     </LinearGradient>
   );
 }
@@ -309,4 +352,10 @@ const styles = StyleSheet.create({
   successIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginBottom: 4 },
   leaveConfirmBtn: { padding: 16, borderRadius: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,80,80,0.3)', backgroundColor: 'rgba(255,80,80,0.1)' },
   leaveConfirmText: { fontWeight: '700', color: '#ff6b6b', fontSize: 15 },
+  memberCardAvatar: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)', marginBottom: 4, position: 'relative' },
+  captainBadge: { position: 'absolute', bottom: 2, right: 2, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,215,0,0.2)', borderWidth: 1, borderColor: 'rgba(255,215,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+  memberCardStats: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 24, width: '100%', marginTop: 4 },
+  memberCardStat: { flex: 1, alignItems: 'center', gap: 4 },
+  memberCardVal: { fontWeight: '800', fontSize: 20, color: 'white' },
+  memberCardLab: { fontSize: 11, color: '#888', fontWeight: '500' },
 });

@@ -1,22 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const players = [
-  { id: 1, name: 'Lionel Messi', ovr: 96.3, wins: 45 },
-  { id: 2, name: 'Frank Ribery', ovr: 94.1, wins: 38 },
-  { id: 3, name: 'Neymar Junior', ovr: 92.9, wins: 35 },
-  { id: 4, name: 'Lamine Yamal', ovr: 95.1, wins: 33 },
-  { id: 5, name: 'Arjen Robben', ovr: 91.7, wins: 30 },
-  { id: 6, name: 'Harry Maguire', ovr: 88.4, wins: 28 },
-  { id: 7, name: 'Cristiano Ronaldo', ovr: 90.2, wins: 26 },
-  { id: 8, name: 'Pedri Gonzalez', ovr: 93.3, wins: 24 },
-  { id: 9, name: 'Kylian Mbappe', ovr: 94.8, wins: 22 },
-  { id: 10, name: 'Erling Haaland', ovr: 93.7, wins: 20 },
-  { id: 11, name: 'Vinicius Junior', ovr: 92.1, wins: 18 },
-  { id: 12, name: 'Jude Bellingham', ovr: 91.4, wins: 16 },
-  { id: 13, name: 'Baller', ovr: 70.0, wins: 2, isMe: true },
+  { id: 1,  name: 'Lionel Messi',      ovr: 96.3, wins: 45, position: 'Forward' },
+  { id: 2,  name: 'Frank Ribery',      ovr: 94.1, wins: 38, position: 'Forward' },
+  { id: 3,  name: 'Neymar Junior',     ovr: 92.9, wins: 35, position: 'Forward' },
+  { id: 4,  name: 'Lamine Yamal',      ovr: 95.1, wins: 33, position: 'Forward' },
+  { id: 5,  name: 'Arjen Robben',      ovr: 91.7, wins: 30, position: 'Forward' },
+  { id: 6,  name: 'Harry Maguire',     ovr: 88.4, wins: 28, position: 'Defender' },
+  { id: 7,  name: 'Cristiano Ronaldo', ovr: 90.2, wins: 26, position: 'Forward' },
+  { id: 8,  name: 'Pedri Gonzalez',    ovr: 93.3, wins: 24, position: 'Midfielder' },
+  { id: 9,  name: 'Kylian Mbappe',     ovr: 94.8, wins: 22, position: 'Forward' },
+  { id: 10, name: 'Erling Haaland',    ovr: 93.7, wins: 20, position: 'Forward' },
+  { id: 11, name: 'Vinicius Junior',   ovr: 92.1, wins: 18, position: 'Forward' },
+  { id: 12, name: 'Jude Bellingham',   ovr: 91.4, wins: 16, position: 'Midfielder' },
+  { id: 13, name: 'Baller',            ovr: 70.0, wins: 2,  position: 'Midfielder', isMe: true },
 ];
 
 const teams = [
@@ -40,9 +40,12 @@ const podiumColors: { [key: number]: string } = {
   3: '#CD7F32',
 };
 
+type Player = { id: number; name: string; ovr: number; wins: number; position: string; isMe?: boolean };
+
 export default function RankingsScreen() {
   const [tab, setTab] = useState<'individual' | 'team'>('individual');
   const [query, setQuery] = useState('');
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
   const data = tab === 'individual' ? players : teams;
   const top3 = data.slice(0, 3);
@@ -153,8 +156,14 @@ export default function RankingsScreen() {
               ? data.findIndex((r) => r.id === item.id) + 1
               : index + 4;
             const isMe = (item as any).isMe === true;
+            const isPlayer = tab === 'individual';
             return (
-              <View key={item.id} style={[styles.row, isMe && styles.rowMe]}>
+              <TouchableOpacity
+                key={item.id}
+                style={[styles.row, isMe && styles.rowMe]}
+                onPress={() => isPlayer && setSelectedPlayer(item as Player)}
+                activeOpacity={isPlayer ? 0.7 : 1}
+              >
                 <View style={[styles.rankBox, isMe && styles.rankBoxMe]}>
                   <Text style={[styles.rankText, isMe && { color: 'white' }]}>{rank}</Text>
                 </View>
@@ -169,7 +178,7 @@ export default function RankingsScreen() {
                   <Text style={styles.rowWins}>{item.wins} wins</Text>
                 </View>
                 <Text style={[styles.rowOvr, isMe && { color: 'white' }]}>{item.ovr} OVR</Text>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -182,6 +191,46 @@ export default function RankingsScreen() {
         )}
 
       </ScrollView>
+
+      {/* Player Card Modal */}
+      <Modal visible={!!selectedPlayer} transparent animationType="slide">
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.handle} />
+            {selectedPlayer && (
+              <>
+                <View style={styles.cardAvatar}>
+                  <Ionicons name="person" size={36} color="white" />
+                </View>
+                <Text style={styles.cardName}>{selectedPlayer.name}</Text>
+                <Text style={styles.cardPosition}>{selectedPlayer.position}</Text>
+                <View style={styles.cardStats}>
+                  <View style={styles.cardStat}>
+                    <Text style={styles.cardStatVal}>{selectedPlayer.ovr}</Text>
+                    <Text style={styles.cardStatLab}>OVR</Text>
+                  </View>
+                  <View style={styles.cardDivider} />
+                  <View style={styles.cardStat}>
+                    <Text style={styles.cardStatVal}>{selectedPlayer.wins}</Text>
+                    <Text style={styles.cardStatLab}>Wins</Text>
+                  </View>
+                  <View style={styles.cardDivider} />
+                  <View style={styles.cardStat}>
+                    <Text style={styles.cardStatVal}>
+                      {players.findIndex(p => p.id === selectedPlayer.id) + 1}
+                    </Text>
+                    <Text style={styles.cardStatLab}>Rank</Text>
+                  </View>
+                </View>
+                <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedPlayer(null)}>
+                  <Text style={styles.closeBtnText}>Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
     </LinearGradient>
   );
 }
@@ -397,4 +446,17 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 15,
   },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: '#1a1a1a', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 48, gap: 12, alignItems: 'center', borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: 8 },
+  cardAvatar: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)', marginBottom: 4 },
+  cardName: { fontWeight: '900', fontSize: 22, color: 'white', textAlign: 'center' },
+  cardPosition: { fontSize: 13, color: '#888', fontWeight: '500' },
+  cardStats: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 24, gap: 0, width: '100%', marginTop: 8 },
+  cardStat: { flex: 1, alignItems: 'center', gap: 4 },
+  cardStatVal: { fontWeight: '800', fontSize: 20, color: 'white' },
+  cardStatLab: { fontSize: 11, color: '#888', fontWeight: '500' },
+  cardDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.1)' },
+  closeBtn: { width: '100%', padding: 14, borderRadius: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginTop: 4 },
+  closeBtnText: { fontWeight: '600', color: '#666', fontSize: 15 },
 })
