@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { DAY_NAMES, MONTH_NAMES, OPPONENT_TEAMS, POSITIONS, POS_SHORT, generateDates } from '../../lib/constants';
 
 type Member = { id: number; name: string; position: string; ovr: number; captain?: boolean };
 type Team = { id: string; name: string; ovr: number; wins: number; draws: number; losses: number; captain: boolean; members: Member[] };
@@ -28,24 +29,7 @@ const INITIAL_TEAMS: Team[] = [
   },
 ];
 
-const OPPONENT_TEAMS = [
-  { id: 'o1', name: 'Al Nasr FC', ovr: 89.7 },
-  { id: 'o2', name: 'Muscat United', ovr: 88.2 },
-  { id: 'o3', name: 'Thunder Wolves', ovr: 87.5 },
-  { id: 'o4', name: 'Royal Knights', ovr: 86.9 },
-];
-
-const POSITIONS = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
-const POS_SHORT: Record<string, string> = { Goalkeeper: 'GK', Defender: 'DEF', Midfielder: 'MID', Forward: 'FWD' };
-
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const DATES = Array.from({ length: 7 }, (_, i) => {
-  const d = new Date();
-  d.setDate(d.getDate() + i + 1);
-  return d;
-});
+const DATES = generateDates(7);
 
 export default function TeamScreen() {
   const [teams, setTeams] = useState<Team[]>(INITIAL_TEAMS);

@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { POSITIONS } from '../../lib/constants';
 
 const AVATARS: { id: number; source: any }[] = [
   { id: 1, source: require('../../assets/avatars/avatar1.png') },
@@ -42,7 +43,6 @@ const achievements = [
 const rarityOrder = ['Legendary', 'Epic', 'Rare', 'Common'];
 const sortedAchievements = [...achievements].sort((a, b) => rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity));
 
-const POSITIONS = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
 const SKILL_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
 
 export default function ProfileScreen() {

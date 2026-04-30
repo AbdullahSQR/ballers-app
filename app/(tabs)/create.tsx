@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -14,30 +14,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { DAY_NAMES, MONTH_NAMES, generateDates } from '../../lib/constants';
 
 const BASE_PLAYERS = 14;
 const MAX_SUBS = 4;
-
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function generateDates() {
-  const dates: Date[] = [];
-  const today = new Date();
-  for (let i = 1; i <= 14; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    dates.push(d);
-  }
-  return dates;
-}
+const DATES = generateDates(14);
 
 export default function CreateScreen() {
-  const dates = useMemo(() => generateDates(), []);
-
   const [matchType, setMatchType] = useState<'Casual' | 'Competitive'>('Casual');
   const [extraSubs, setExtraSubs] = useState(0);
-  const [selectedDate, setSelectedDate] = useState(dates[0]);
+  const [selectedDate, setSelectedDate] = useState(DATES[0]);
   const [inviteInput, setInviteInput] = useState('');
   const [invitedPlayers, setInvitedPlayers] = useState<string[]>([]);
   const [fillFromApp, setFillFromApp] = useState(false);
@@ -65,7 +51,7 @@ export default function CreateScreen() {
     setCreated(false);
     setMatchType('Casual');
     setExtraSubs(0);
-    setSelectedDate(dates[0]);
+    setSelectedDate(DATES[0]);
     setInvitedPlayers([]);
     setFillFromApp(false);
   };
@@ -194,7 +180,7 @@ export default function CreateScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Date</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
-              {dates.map((d, i) => {
+              {DATES.map((d, i) => {
                 const isSelected = d.toDateString() === selectedDate.toDateString();
                 return (
                   <TouchableOpacity

@@ -1,19 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Image, Modal, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { DAY_NAMES, MONTH_NAMES, OPPONENT_TEAMS, generateDates } from '../../lib/constants';
 
 const mockUser = { username: 'Baller', ovr: 70, wins: 0, draws: 0, losses: 0 };
 
 const MY_TEAMS = [
   { id: '1', name: 'FC Wolves', captain: true },
   { id: '2', name: 'Desert Eagles', captain: false },
-];
-
-const OPPONENT_TEAMS = [
-  { id: 'o1', name: 'Al Nasr FC', ovr: 89.7 },
-  { id: 'o2', name: 'Muscat United', ovr: 88.2 },
-  { id: 'o3', name: 'Thunder Wolves', ovr: 87.5 },
-  { id: 'o4', name: 'Royal Knights', ovr: 86.9 },
 ];
 
 const NOTIFICATIONS = [
@@ -23,14 +17,7 @@ const NOTIFICATIONS = [
   { id: 4, icon: 'trophy-outline', message: "You've moved up to rank #8 this month", time: '2d ago', read: true },
 ];
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const DATES = Array.from({ length: 7 }, (_, i) => {
-  const d = new Date();
-  d.setDate(d.getDate() + i + 1);
-  return d;
-});
+const DATES = generateDates(7);
 
 export default function HomeScreen() {
   const [activeMatch, setActiveMatch] = useState<any>(null);

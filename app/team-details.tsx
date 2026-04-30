@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { POSITIONS, POS_SHORT } from '../lib/constants';
 
 type Member = { id: number; name: string; position: string; ovr: number; captain?: boolean };
 type Team = { id: number; name: string; ovr: number; wins: number; draws: number; losses: number; captain: boolean; formed: string; matchesPlayed: number; members: Member[] };
@@ -30,8 +31,6 @@ const teamsData: { [key: string]: Team } = {
   },
 };
 
-const POSITIONS = ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'];
-const POS_SHORT: Record<string, string> = { Goalkeeper: 'GK', Defender: 'DEF', Midfielder: 'MID', Forward: 'FWD' };
 
 
 export default function TeamDetailsScreen() {
