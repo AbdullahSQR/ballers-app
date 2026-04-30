@@ -15,7 +15,7 @@ export default function RegisterScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = async () => {
+  const handleRegister = () => {
     setError('');
 
     if (!user || !email || !pass || !confirm || !day || !month || !year) {

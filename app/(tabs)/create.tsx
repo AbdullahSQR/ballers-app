@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -89,6 +90,9 @@ export default function CreateScreen() {
           </Text>
           <TouchableOpacity style={styles.successBtn} onPress={handleReset}>
             <Text style={styles.successBtnText}>Create Another</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.replace('/(tabs)')}>
+            <Text style={styles.goHomeText}>Back to Home</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -560,4 +564,5 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.25)',
   },
   successBtnText: { color: 'white', fontWeight: '700', fontSize: 15 },
+  goHomeText: { color: '#555', fontWeight: '600', fontSize: 14, textAlign: 'center' },
 });

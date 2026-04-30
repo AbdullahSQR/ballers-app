@@ -102,7 +102,7 @@ export default function QuestionsScreen() {
   const current = showNext ? 2 : currentQuestion + 1;
   const progress = current / (questions.length + 1);
 
-  const handleNext = async () => {
+  const handleNext = () => {
     if (isPosition && !showNext) {
       if (!selectedAnswer) return;
       setSelectedPosition(selectedAnswer);
