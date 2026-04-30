@@ -87,8 +87,10 @@ export default function ProfileScreen() {
 
         <View style={styles.profileCard}>
           <View style={styles.avatarWrap}>
-            <TouchableOpacity style={styles.avatar} onPress={() => { setTempAvatar(selectedAvatar); setShowAvatar(true); }}>
-              <Image source={selectedAvatar.source} style={styles.avatarImg} resizeMode="cover" />
+            <TouchableOpacity activeOpacity={0.8} onPress={() => { setTempAvatar(selectedAvatar); setShowAvatar(true); }}>
+              <View style={styles.avatar}>
+                <Image source={selectedAvatar.source} style={styles.avatarImg} resizeMode="cover" />
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.editAvatar} onPress={() => { setTempAvatar(selectedAvatar); setShowAvatar(true); }}>
               <Ionicons name="pencil-outline" size={13} color="white" />
@@ -180,15 +182,17 @@ export default function ProfileScreen() {
                 return (
                   <TouchableOpacity
                     key={av.id}
-                    style={[styles.avatarOption, isSelected && styles.avatarOptionOn]}
+                    activeOpacity={0.8}
                     onPress={() => setTempAvatar(av)}
                   >
-                    <Image source={av.source} style={styles.avatarOptionImg} resizeMode="cover" />
-                    {isSelected && (
-                      <View style={styles.avatarCheck}>
-                        <Ionicons name="checkmark" size={12} color="white" />
-                      </View>
-                    )}
+                    <View style={[styles.avatarOption, isSelected && styles.avatarOptionOn]}>
+                      <Image source={av.source} style={styles.avatarOptionImg} resizeMode="cover" />
+                      {isSelected && (
+                        <View style={styles.avatarCheck}>
+                          <Ionicons name="checkmark" size={12} color="white" />
+                        </View>
+                      )}
+                    </View>
                   </TouchableOpacity>
                 );
               })}
