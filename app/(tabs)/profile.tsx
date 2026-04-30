@@ -88,7 +88,7 @@ export default function ProfileScreen() {
         <View style={styles.profileCard}>
           <View style={styles.avatarWrap}>
             <TouchableOpacity style={styles.avatar} onPress={() => { setTempAvatar(selectedAvatar); setShowAvatar(true); }}>
-              <Image source={selectedAvatar.source} style={styles.avatarImg} />
+              <Image source={selectedAvatar.source} style={styles.avatarImg} resizeMode="cover" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.editAvatar} onPress={() => { setTempAvatar(selectedAvatar); setShowAvatar(true); }}>
               <Ionicons name="pencil-outline" size={13} color="white" />
@@ -183,7 +183,7 @@ export default function ProfileScreen() {
                     style={[styles.avatarOption, isSelected && styles.avatarOptionOn]}
                     onPress={() => setTempAvatar(av)}
                   >
-                    <Image source={av.source} style={styles.avatarOptionImg} />
+                    <Image source={av.source} style={styles.avatarOptionImg} resizeMode="cover" />
                     {isSelected && (
                       <View style={styles.avatarCheck}>
                         <Ionicons name="checkmark" size={12} color="white" />
