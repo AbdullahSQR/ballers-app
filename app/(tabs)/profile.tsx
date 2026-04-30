@@ -4,6 +4,21 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+const AVATARS: { id: number; icon: string; color: string }[] = [
+  { id: 1, icon: 'person', color: '#4FC3F7' },
+  { id: 2, icon: 'football', color: '#69db7c' },
+  { id: 3, icon: 'flame', color: '#FF7043' },
+  { id: 4, icon: 'star', color: '#FFD700' },
+  { id: 5, icon: 'shield', color: '#CE93D8' },
+  { id: 6, icon: 'trophy', color: '#80DEEA' },
+  { id: 7, icon: 'rocket', color: '#FF8A65' },
+  { id: 8, icon: 'flash', color: '#FFF176' },
+  { id: 9, icon: 'planet', color: '#B39DDB' },
+  { id: 10, icon: 'skull', color: '#EF9A9A' },
+  { id: 11, icon: 'paw', color: '#FFCC80' },
+  { id: 12, icon: 'thunderstorm', color: '#80CBC4' },
+];
+
 type UserData = { username: string; ovr: number; level: number; xp: number; wins: number; draws: number; losses: number; position: string; skillLevel: string };
 
 const INITIAL_USER: UserData = {
@@ -40,6 +55,10 @@ const SKILL_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
 export default function ProfileScreen() {
   const [userData, setUserData] = useState<UserData>(INITIAL_USER);
 
+  const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
+  const [showAvatar, setShowAvatar] = useState(false);
+  const [tempAvatar, setTempAvatar] = useState(AVATARS[0]);
+
   const [showEdit, setShowEdit] = useState(false);
   const [editUsername, setEditUsername] = useState(userData.username);
   const [editPosition, setEditPosition] = useState(userData.position);
@@ -75,11 +94,11 @@ export default function ProfileScreen() {
 
         <View style={styles.profileCard}>
           <View style={styles.avatarWrap}>
-            <View style={styles.avatar}>
-              <Ionicons name="person" size={44} color="white" />
+            <View style={[styles.avatar, { borderColor: selectedAvatar.color + '60' }]}>
+              <Ionicons name={selectedAvatar.icon as any} size={44} color={selectedAvatar.color} />
             </View>
-            <TouchableOpacity style={styles.editAvatar}>
-              <Ionicons name="camera-outline" size={13} color="white" />
+            <TouchableOpacity style={styles.editAvatar} onPress={() => { setTempAvatar(selectedAvatar); setShowAvatar(true); }}>
+              <Ionicons name="pencil-outline" size={13} color="white" />
             </TouchableOpacity>
           </View>
 
@@ -154,6 +173,37 @@ export default function ProfileScreen() {
         </View>
 
       </ScrollView>
+
+      {/* Avatar Picker Modal */}
+      <Modal visible={showAvatar} transparent animationType="slide">
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.handle} />
+            <Text style={styles.sheetTitle}>Choose Avatar</Text>
+            <Text style={styles.fieldLabel}>Pick an icon that represents you</Text>
+            <View style={styles.avatarGrid}>
+              {AVATARS.map((av) => {
+                const isSelected = tempAvatar.id === av.id;
+                return (
+                  <TouchableOpacity
+                    key={av.id}
+                    style={[styles.avatarOption, isSelected && { borderColor: av.color, backgroundColor: av.color + '20' }]}
+                    onPress={() => setTempAvatar(av)}
+                  >
+                    <Ionicons name={av.icon as any} size={28} color={isSelected ? av.color : '#555'} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => { setSelectedAvatar(tempAvatar); setShowAvatar(false); }}>
+              <Text style={styles.primaryText}>Save Avatar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secBtn} onPress={() => setShowAvatar(false)}>
+              <Text style={styles.secText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Edit Profile Modal */}
       <Modal visible={showEdit} transparent animationType="slide">
@@ -264,7 +314,9 @@ const styles = StyleSheet.create({
   profileCard: { borderWidth: 1, borderRadius: 24, padding: 24, gap: 12, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.12)' },
   avatarWrap: { position: 'relative', marginBottom: 4 },
   avatar: { width: 90, height: 90, borderRadius: 45, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)' },
-  editAvatar: { position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+  editAvatar: { position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.25)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
+  avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
+  avatarOption: { width: 60, height: 60, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.05)' },
   name: { fontWeight: '900', fontSize: 22, color: 'white', letterSpacing: 0.3 },
   uid: { fontSize: 12, color: '#666', fontWeight: '500' },
   ovrBadge: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },

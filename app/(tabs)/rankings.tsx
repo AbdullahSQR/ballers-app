@@ -16,6 +16,7 @@ const players = [
   { id: 10, name: 'Erling Haaland', ovr: 93.7, wins: 20 },
   { id: 11, name: 'Vinicius Junior', ovr: 92.1, wins: 18 },
   { id: 12, name: 'Jude Bellingham', ovr: 91.4, wins: 16 },
+  { id: 13, name: 'Baller', ovr: 70.0, wins: 2, isMe: true },
 ];
 
 const teams = [
@@ -151,26 +152,30 @@ export default function RankingsScreen() {
             const rank = searching
               ? data.findIndex((r) => r.id === item.id) + 1
               : index + 4;
+            const isMe = (item as any).isMe === true;
             return (
-              <View key={item.id} style={styles.row}>
-                <View style={styles.rankBox}>
-                  <Text style={styles.rankText}>{rank}</Text>
+              <View key={item.id} style={[styles.row, isMe && styles.rowMe]}>
+                <View style={[styles.rankBox, isMe && styles.rankBoxMe]}>
+                  <Text style={[styles.rankText, isMe && { color: 'white' }]}>{rank}</Text>
                 </View>
-                <View style={styles.rowAvatar}>
+                <View style={[styles.rowAvatar, isMe && styles.rowAvatarMe]}>
                   <Ionicons name="person" size={18} color="white" />
                 </View>
                 <View style={styles.rowInfo}>
-                  <Text style={styles.rowName}>{item.name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.rowName}>{item.name}</Text>
+                    {isMe && <Text style={styles.youBadge}>You</Text>}
+                  </View>
                   <Text style={styles.rowWins}>{item.wins} wins</Text>
                 </View>
-                <Text style={styles.rowOvr}>{item.ovr} OVR</Text>
+                <Text style={[styles.rowOvr, isMe && { color: 'white' }]}>{item.ovr} OVR</Text>
               </View>
             );
           })}
         </View>
 
-        {!searching && (
-          <TouchableOpacity style={styles.viewRankBtn}>
+        {!searching && tab === 'individual' && (
+          <TouchableOpacity style={styles.viewRankBtn} onPress={() => setQuery('Baller')}>
             <Text style={styles.viewRank}>View Your Rank</Text>
             <Ionicons name="arrow-forward" size={16} color="white" />
           </TouchableOpacity>
@@ -355,6 +360,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#aaa',
     fontSize: 13,
+  },
+  rowMe: {
+    borderColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  rankBoxMe: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  rowAvatarMe: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  youBadge: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#aaa',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
   },
   viewRankBtn: {
     gap: 8,
