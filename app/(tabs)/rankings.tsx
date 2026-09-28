@@ -1,59 +1,142 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
-import { Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useAuth } from '@/lib/auth-context';
+import api from '@/lib/api';
 
-const players = [
-  { id: 1,  name: 'Lionel Messi',      ovr: 96.3, wins: 45, position: 'Forward' },
-  { id: 2,  name: 'Frank Ribery',      ovr: 94.1, wins: 38, position: 'Forward' },
-  { id: 3,  name: 'Neymar Junior',     ovr: 92.9, wins: 35, position: 'Forward' },
-  { id: 4,  name: 'Lamine Yamal',      ovr: 95.1, wins: 33, position: 'Forward' },
-  { id: 5,  name: 'Arjen Robben',      ovr: 91.7, wins: 30, position: 'Forward' },
-  { id: 6,  name: 'Harry Maguire',     ovr: 88.4, wins: 28, position: 'Defender' },
-  { id: 7,  name: 'Cristiano Ronaldo', ovr: 90.2, wins: 26, position: 'Forward' },
-  { id: 8,  name: 'Pedri Gonzalez',    ovr: 93.3, wins: 24, position: 'Midfielder' },
-  { id: 9,  name: 'Kylian Mbappe',     ovr: 94.8, wins: 22, position: 'Forward' },
-  { id: 10, name: 'Erling Haaland',    ovr: 93.7, wins: 20, position: 'Forward' },
-  { id: 11, name: 'Vinicius Junior',   ovr: 92.1, wins: 18, position: 'Forward' },
-  { id: 12, name: 'Jude Bellingham',   ovr: 91.4, wins: 16, position: 'Midfielder' },
-  { id: 13, name: 'Baller',            ovr: 70.0, wins: 2,  position: 'Midfielder', isMe: true },
-];
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const teams = [
-  { id: 1, name: 'FC Wolves', ovr: 92.1, wins: 32 },
-  { id: 2, name: 'Desert Eagles', ovr: 90.4, wins: 28 },
-  { id: 3, name: 'Al Nasr FC', ovr: 89.7, wins: 25 },
-  { id: 4, name: 'Muscat United', ovr: 88.2, wins: 22 },
-  { id: 5, name: 'Thunder Wolves', ovr: 87.5, wins: 20 },
-  { id: 6, name: 'Royal Knights', ovr: 86.9, wins: 18 },
-  { id: 7, name: 'FC Nizwa', ovr: 85.3, wins: 16 },
-  { id: 8, name: 'Oman Ballers', ovr: 84.1, wins: 14 },
-  { id: 9, name: 'Muscat City FC', ovr: 83.7, wins: 12 },
-  { id: 10, name: 'Al Seeb Stars', ovr: 82.9, wins: 10 },
-  { id: 11, name: 'Sohar United', ovr: 81.4, wins: 8 },
-  { id: 12, name: 'Salalah FC', ovr: 80.2, wins: 6 },
-];
+type PlayerEntry = {
+  rank: number;
+  user: { id: string; username: string; avatar_url: string | null };
+  position: string;
+  skill_level: string;
+  ovr: number;
+  matches_played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goals_scored: number;
+};
 
-const podiumColors: { [key: number]: string } = {
+type TeamEntry = {
+  rank: number;
+  id: string;
+  name: string;
+  logo_url: string | null;
+  ovr: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  member_count: number;
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const POSITION_LABELS: Record<string, string> = {
+  GK: 'Goalkeeper',
+  DEF: 'Defender',
+  MID: 'Midfielder',
+  ATT: 'Forward',
+};
+
+const podiumColors: Record<number, string> = {
   1: '#FFD700',
   2: '#C0C0C0',
   3: '#CD7F32',
 };
 
-type Player = { id: number; name: string; ovr: number; wins: number; position: string; isMe?: boolean };
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function RankingsScreen() {
+  const { user } = useAuth();
+
   const [tab, setTab] = useState<'individual' | 'team'>('individual');
   const [query, setQuery] = useState('');
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerEntry | null>(null);
 
-  const data = tab === 'individual' ? players : teams;
-  const top3 = data.slice(0, 3);
+  const [players, setPlayers] = useState<PlayerEntry[]>([]);
+  const [teams, setTeams] = useState<TeamEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchLeaderboards = useCallback(async () => {
+    try {
+      setError(null);
+      const [pRes, tRes] = await Promise.all([
+        api.get('/leaderboard/players'),
+        api.get('/leaderboard/teams'),
+      ]);
+      setPlayers(pRes.data.data ?? []);
+      setTeams(tRes.data.data ?? []);
+    } catch (err: any) {
+      setError(err.message ?? 'Failed to load leaderboard');
+    }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      await fetchLeaderboards();
+      setLoading(false);
+    })();
+  }, [fetchLeaderboards]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchLeaderboards();
+    setRefreshing(false);
+  }, [fetchLeaderboards]);
+
+  // ─── Derived ──────────────────────────────────────────────────────────────
+
   const searching = query.length > 0;
 
-  const filtered = searching
-    ? data.filter((item) => item.name.toLowerCase().includes(query.toLowerCase()))
-    : data.slice(3);
+  const filteredPlayers = searching
+    ? players.filter((p) => p.user.username.toLowerCase().includes(query.toLowerCase()))
+    : players.slice(3);
+
+  const filteredTeams = searching
+    ? teams.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()))
+    : teams.slice(3);
+
+  const top3Players = players.slice(0, 3);
+  const top3Teams = teams.slice(0, 3);
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <LinearGradient colors={['#2a2a2a', '#000000']} style={styles.center}>
+        <ActivityIndicator color="#FFD700" size="large" />
+      </LinearGradient>
+    );
+  }
+
+  if (error) {
+    return (
+      <LinearGradient colors={['#2a2a2a', '#000000']} style={styles.center}>
+        <Ionicons name="alert-circle-outline" size={48} color="#444" />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => { setLoading(true); fetchLeaderboards().finally(() => setLoading(false)); }}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient colors={['#2a2a2a', '#000000']} style={styles.container}>
@@ -62,6 +145,7 @@ export default function RankingsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />}
       >
 
         <View style={styles.header}>
@@ -69,10 +153,11 @@ export default function RankingsScreen() {
           <Text style={styles.headSub}>Monthly leaderboard</Text>
         </View>
 
+        {/* Toggle */}
         <View style={styles.toggle}>
           <TouchableOpacity
             style={[styles.toggleBtn, tab === 'individual' && styles.toggleOn]}
-            onPress={() => setTab('individual')}
+            onPress={() => { setTab('individual'); setQuery(''); }}
           >
             <Text style={[styles.toggleText, tab === 'individual' && styles.toggleTextOn]}>
               Individual
@@ -80,7 +165,7 @@ export default function RankingsScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.toggleBtn, tab === 'team' && styles.toggleOn]}
-            onPress={() => setTab('team')}
+            onPress={() => { setTab('team'); setQuery(''); }}
           >
             <Text style={[styles.toggleText, tab === 'team' && styles.toggleTextOn]}>
               Teams
@@ -88,6 +173,7 @@ export default function RankingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Search */}
         <View style={styles.searchBox}>
           <Ionicons name="search-outline" size={18} color="#666" />
           <TextInput
@@ -104,87 +190,151 @@ export default function RankingsScreen() {
           )}
         </View>
 
-        {!searching && (
+        {/* Podium */}
+        {!searching && tab === 'individual' && top3Players.length >= 3 && (
           <View style={styles.podium}>
-
+            {/* 2nd */}
             <View style={styles.podiumItem}>
               <View style={[styles.podiumAvatar, { borderColor: podiumColors[2] }]}>
                 <Ionicons name="person" size={22} color="white" />
               </View>
-              <Text style={styles.podiumName} numberOfLines={1}>{top3[1]?.name}</Text>
-              <Text style={styles.podiumOvr}>{top3[1]?.ovr} OVR</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>{top3Players[1]?.user.username}</Text>
+              <Text style={styles.podiumOvr}>{top3Players[1]?.ovr.toFixed(1)} OVR</Text>
               <View style={[styles.podiumBase, { height: 60, backgroundColor: 'rgba(192,192,192,0.2)', borderColor: podiumColors[2] }]}>
                 <Text style={[styles.podiumRank, { color: podiumColors[2] }]}>2nd</Text>
               </View>
             </View>
-
+            {/* 1st */}
             <View style={styles.podiumItem}>
               <Ionicons name="trophy" size={20} color="#FFD700" style={{ marginBottom: 4 }} />
               <View style={[styles.podiumAvatar, styles.podiumBig, { borderColor: podiumColors[1] }]}>
                 <Ionicons name="person" size={28} color="white" />
               </View>
-              <Text style={styles.podiumName} numberOfLines={1}>{top3[0]?.name}</Text>
-              <Text style={styles.podiumOvr}>{top3[0]?.ovr} OVR</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>{top3Players[0]?.user.username}</Text>
+              <Text style={styles.podiumOvr}>{top3Players[0]?.ovr.toFixed(1)} OVR</Text>
               <View style={[styles.podiumBase, { height: 80, backgroundColor: 'rgba(255,215,0,0.2)', borderColor: podiumColors[1] }]}>
                 <Text style={[styles.podiumRank, { color: podiumColors[1] }]}>1st</Text>
               </View>
             </View>
-
+            {/* 3rd */}
             <View style={styles.podiumItem}>
               <View style={[styles.podiumAvatar, { borderColor: podiumColors[3] }]}>
                 <Ionicons name="person" size={22} color="white" />
               </View>
-              <Text style={styles.podiumName} numberOfLines={1}>{top3[2]?.name}</Text>
-              <Text style={styles.podiumOvr}>{top3[2]?.ovr} OVR</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>{top3Players[2]?.user.username}</Text>
+              <Text style={styles.podiumOvr}>{top3Players[2]?.ovr.toFixed(1)} OVR</Text>
               <View style={[styles.podiumBase, { height: 45, backgroundColor: 'rgba(205,127,50,0.2)', borderColor: podiumColors[3] }]}>
                 <Text style={[styles.podiumRank, { color: podiumColors[3] }]}>3rd</Text>
               </View>
             </View>
-
           </View>
         )}
 
-        <View style={styles.list}>
-          {searching && filtered.length === 0 && (
-            <View style={styles.empty}>
-              <Ionicons name="search-outline" size={40} color="#444" />
-              <Text style={styles.emptyText}>No results found</Text>
+        {!searching && tab === 'team' && top3Teams.length >= 3 && (
+          <View style={styles.podium}>
+            <View style={styles.podiumItem}>
+              <View style={[styles.podiumAvatar, { borderColor: podiumColors[2] }]}>
+                <Ionicons name="shield" size={22} color="white" />
+              </View>
+              <Text style={styles.podiumName} numberOfLines={1}>{top3Teams[1]?.name}</Text>
+              <Text style={styles.podiumOvr}>{top3Teams[1]?.ovr.toFixed(1)} OVR</Text>
+              <View style={[styles.podiumBase, { height: 60, backgroundColor: 'rgba(192,192,192,0.2)', borderColor: podiumColors[2] }]}>
+                <Text style={[styles.podiumRank, { color: podiumColors[2] }]}>2nd</Text>
+              </View>
             </View>
+            <View style={styles.podiumItem}>
+              <Ionicons name="trophy" size={20} color="#FFD700" style={{ marginBottom: 4 }} />
+              <View style={[styles.podiumAvatar, styles.podiumBig, { borderColor: podiumColors[1] }]}>
+                <Ionicons name="shield" size={28} color="white" />
+              </View>
+              <Text style={styles.podiumName} numberOfLines={1}>{top3Teams[0]?.name}</Text>
+              <Text style={styles.podiumOvr}>{top3Teams[0]?.ovr.toFixed(1)} OVR</Text>
+              <View style={[styles.podiumBase, { height: 80, backgroundColor: 'rgba(255,215,0,0.2)', borderColor: podiumColors[1] }]}>
+                <Text style={[styles.podiumRank, { color: podiumColors[1] }]}>1st</Text>
+              </View>
+            </View>
+            <View style={styles.podiumItem}>
+              <View style={[styles.podiumAvatar, { borderColor: podiumColors[3] }]}>
+                <Ionicons name="shield" size={22} color="white" />
+              </View>
+              <Text style={styles.podiumName} numberOfLines={1}>{top3Teams[2]?.name}</Text>
+              <Text style={styles.podiumOvr}>{top3Teams[2]?.ovr.toFixed(1)} OVR</Text>
+              <View style={[styles.podiumBase, { height: 45, backgroundColor: 'rgba(205,127,50,0.2)', borderColor: podiumColors[3] }]}>
+                <Text style={[styles.podiumRank, { color: podiumColors[3] }]}>3rd</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* List */}
+        <View style={styles.list}>
+          {tab === 'individual' && (
+            <>
+              {searching && filteredPlayers.length === 0 && (
+                <View style={styles.empty}>
+                  <Ionicons name="search-outline" size={40} color="#444" />
+                  <Text style={styles.emptyText}>No players found</Text>
+                </View>
+              )}
+              {filteredPlayers.map((item) => {
+                const isMe = item.user.id === user?.id;
+                return (
+                  <TouchableOpacity
+                    key={item.user.id}
+                    style={[styles.row, isMe && styles.rowMe]}
+                    onPress={() => setSelectedPlayer(item)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.rankBox, isMe && styles.rankBoxMe]}>
+                      <Text style={[styles.rankText, isMe && { color: 'white' }]}>{item.rank}</Text>
+                    </View>
+                    <View style={[styles.rowAvatar, isMe && styles.rowAvatarMe]}>
+                      <Ionicons name="person" size={18} color="white" />
+                    </View>
+                    <View style={styles.rowInfo}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.rowName}>{item.user.username}</Text>
+                        {isMe && <Text style={styles.youBadge}>You</Text>}
+                      </View>
+                      <Text style={styles.rowWins}>{item.wins} wins · {POSITION_LABELS[item.position] ?? item.position}</Text>
+                    </View>
+                    <Text style={[styles.rowOvr, isMe && { color: 'white' }]}>{item.ovr.toFixed(1)} OVR</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </>
           )}
-          {filtered.map((item, index) => {
-            const rank = searching
-              ? data.findIndex((r) => r.id === item.id) + 1
-              : index + 4;
-            const isMe = (item as any).isMe === true;
-            const isPlayer = tab === 'individual';
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.row, isMe && styles.rowMe]}
-                onPress={() => isPlayer && setSelectedPlayer(item as Player)}
-                activeOpacity={isPlayer ? 0.7 : 1}
-              >
-                <View style={[styles.rankBox, isMe && styles.rankBoxMe]}>
-                  <Text style={[styles.rankText, isMe && { color: 'white' }]}>{rank}</Text>
+
+          {tab === 'team' && (
+            <>
+              {searching && filteredTeams.length === 0 && (
+                <View style={styles.empty}>
+                  <Ionicons name="search-outline" size={40} color="#444" />
+                  <Text style={styles.emptyText}>No teams found</Text>
                 </View>
-                <View style={[styles.rowAvatar, isMe && styles.rowAvatarMe]}>
-                  <Ionicons name="person" size={18} color="white" />
-                </View>
-                <View style={styles.rowInfo}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.rowName}>{item.name}</Text>
-                    {isMe && <Text style={styles.youBadge}>You</Text>}
+              )}
+              {filteredTeams.map((item) => (
+                <View key={item.id} style={styles.row}>
+                  <View style={styles.rankBox}>
+                    <Text style={styles.rankText}>{item.rank}</Text>
                   </View>
-                  <Text style={styles.rowWins}>{item.wins} wins</Text>
+                  <View style={styles.rowAvatar}>
+                    <Ionicons name="shield" size={18} color="white" />
+                  </View>
+                  <View style={styles.rowInfo}>
+                    <Text style={styles.rowName}>{item.name}</Text>
+                    <Text style={styles.rowWins}>{item.wins} wins · {item.member_count} members</Text>
+                  </View>
+                  <Text style={styles.rowOvr}>{item.ovr.toFixed(1)} OVR</Text>
                 </View>
-                <Text style={[styles.rowOvr, isMe && { color: 'white' }]}>{item.ovr} OVR</Text>
-              </TouchableOpacity>
-            );
-          })}
+              ))}
+            </>
+          )}
         </View>
 
-        {!searching && tab === 'individual' && (
-          <TouchableOpacity style={styles.viewRankBtn} onPress={() => setQuery('Baller')}>
+        {/* View Your Rank */}
+        {!searching && tab === 'individual' && user && (
+          <TouchableOpacity style={styles.viewRankBtn} onPress={() => setQuery(user.username)}>
             <Text style={styles.viewRank}>View Your Rank</Text>
             <Ionicons name="arrow-forward" size={16} color="white" />
           </TouchableOpacity>
@@ -202,11 +352,13 @@ export default function RankingsScreen() {
                 <View style={styles.cardAvatar}>
                   <Ionicons name="person" size={36} color="white" />
                 </View>
-                <Text style={styles.cardName}>{selectedPlayer.name}</Text>
-                <Text style={styles.cardPosition}>{selectedPlayer.position}</Text>
+                <Text style={styles.cardName}>{selectedPlayer.user.username}</Text>
+                <Text style={styles.cardPosition}>
+                  {POSITION_LABELS[selectedPlayer.position] ?? selectedPlayer.position}
+                </Text>
                 <View style={styles.cardStats}>
                   <View style={styles.cardStat}>
-                    <Text style={styles.cardStatVal}>{selectedPlayer.ovr}</Text>
+                    <Text style={styles.cardStatVal}>{selectedPlayer.ovr.toFixed(1)}</Text>
                     <Text style={styles.cardStatLab}>OVR</Text>
                   </View>
                   <View style={styles.cardDivider} />
@@ -216,10 +368,22 @@ export default function RankingsScreen() {
                   </View>
                   <View style={styles.cardDivider} />
                   <View style={styles.cardStat}>
-                    <Text style={styles.cardStatVal}>
-                      {players.findIndex(p => p.id === selectedPlayer.id) + 1}
-                    </Text>
+                    <Text style={styles.cardStatVal}>{selectedPlayer.rank}</Text>
                     <Text style={styles.cardStatLab}>Rank</Text>
+                  </View>
+                </View>
+                <View style={styles.cardExtraRow}>
+                  <View style={styles.cardExtra}>
+                    <Text style={styles.cardExtraVal}>{selectedPlayer.matches_played}</Text>
+                    <Text style={styles.cardExtraLab}>Matches</Text>
+                  </View>
+                  <View style={styles.cardExtra}>
+                    <Text style={styles.cardExtraVal}>{selectedPlayer.goals_scored}</Text>
+                    <Text style={styles.cardExtraLab}>Goals</Text>
+                  </View>
+                  <View style={styles.cardExtra}>
+                    <Text style={styles.cardExtraVal}>{selectedPlayer.losses}</Text>
+                    <Text style={styles.cardExtraLab}>Losses</Text>
                   </View>
                 </View>
                 <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedPlayer(null)}>
@@ -236,227 +400,121 @@ export default function RankingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 },
   scroll: {
     paddingTop: 65,
     paddingHorizontal: 22,
     gap: 20,
     paddingBottom: 110,
   },
-  header: {
-    gap: 4,
-  },
-  headTitle: {
-    fontWeight: '900',
-    fontSize: 26,
-    color: 'white',
-    letterSpacing: 0.3,
-  },
-  headSub: {
-    color: '#888',
-    fontSize: 13,
-    fontWeight: '500',
-  },
+  header: { gap: 4 },
+  headTitle: { fontWeight: '900', fontSize: 26, color: 'white', letterSpacing: 0.3 },
+  headSub: { color: '#888', fontSize: 13, fontWeight: '500' },
   toggle: {
-    gap: 4,
-    flexDirection: 'row',
-    borderRadius: 14,
-    padding: 4,
+    gap: 4, flexDirection: 'row', borderRadius: 14, padding: 4,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  toggleBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  toggleOn: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  toggleText: {
-    fontWeight: '600',
-    color: '#666',
-    fontSize: 14,
-  },
-  toggleTextOn: {
-    color: 'white',
-    fontWeight: '700',
-  },
+  toggleBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10 },
+  toggleOn: { backgroundColor: 'rgba(255,255,255,0.15)' },
+  toggleText: { fontWeight: '600', color: '#666', fontSize: 14 },
+  toggleTextOn: { color: 'white', fontWeight: '700' },
   searchBox: {
-    gap: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderColor: 'rgba(255,255,255,0.1)',
+    gap: 10, flexDirection: 'row', alignItems: 'center', borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.1)',
   },
-  searchInput: {
-    flex: 1,
-    color: 'white',
-    fontSize: 15,
-  },
+  searchInput: { flex: 1, color: 'white', fontSize: 15 },
   podium: {
-    gap: 8,
-    flexDirection: 'row',
-    paddingHorizontal: 8,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+    gap: 8, flexDirection: 'row', paddingHorizontal: 8,
+    alignItems: 'flex-end', justifyContent: 'center',
   },
-  podiumItem: {
-    flex: 1,
-    gap: 6,
-    alignItems: 'center',
-  },
+  podiumItem: { flex: 1, gap: 6, alignItems: 'center' },
   podiumAvatar: {
-    borderWidth: 2,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderWidth: 2, width: 52, height: 52, borderRadius: 26,
+    justifyContent: 'center', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  podiumBig: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  podiumBig: { width: 64, height: 64, borderRadius: 32 },
+  podiumName: { fontWeight: '700', color: 'white', fontSize: 12, textAlign: 'center' },
+  podiumOvr: { fontSize: 10, color: '#888', textAlign: 'center' },
+  podiumBase: { width: '100%', borderWidth: 1, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  podiumRank: { fontWeight: '800', fontSize: 13 },
+  list: { gap: 10 },
+  empty: { gap: 12, alignItems: 'center', paddingVertical: 40 },
+  emptyText: { fontWeight: '600', color: '#444', fontSize: 15 },
+  errorText: { color: '#888', fontSize: 15, fontWeight: '500', textAlign: 'center', paddingHorizontal: 32 },
+  retryBtn: {
+    paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
   },
-  podiumName: {
-    fontWeight: '700',
-    color: 'white',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  podiumOvr: {
-    fontSize: 10,
-    color: '#888',
-    textAlign: 'center',
-  },
-  podiumBase: {
-    width: '100%',
-    borderWidth: 1,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  podiumRank: {
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  list: {
-    gap: 10,
-  },
-  empty: {
-    gap: 12,
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontWeight: '600',
-    color: '#444',
-    fontSize: 15,
-  },
+  retryText: { color: 'white', fontWeight: '600', fontSize: 14 },
   row: {
-    gap: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.08)',
+    gap: 12, flexDirection: 'row', alignItems: 'center', borderRadius: 14,
+    padding: 12, borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.08)',
   },
   rankBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 32, height: 32, borderRadius: 10, justifyContent: 'center',
+    alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  rankText: {
-    fontWeight: '700',
-    color: '#888',
-    fontSize: 13,
-  },
+  rankText: { fontWeight: '700', color: '#888', fontSize: 13 },
   rowAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 38, height: 38, borderRadius: 19, justifyContent: 'center',
+    alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  rowInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  rowName: {
-    fontWeight: '600',
-    color: 'white',
-    fontSize: 14,
-  },
-  rowWins: {
-    color: '#888',
-    fontSize: 12,
-  },
-  rowOvr: {
-    fontWeight: '700',
-    color: '#aaa',
-    fontSize: 13,
-  },
-  rowMe: {
-    borderColor: 'rgba(255,255,255,0.35)',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  rankBoxMe: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  rowAvatarMe: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
+  rowInfo: { flex: 1, gap: 2 },
+  rowName: { fontWeight: '600', color: 'white', fontSize: 14 },
+  rowWins: { color: '#888', fontSize: 12 },
+  rowOvr: { fontWeight: '700', color: '#aaa', fontSize: 13 },
+  rowMe: { borderColor: 'rgba(255,255,255,0.35)', backgroundColor: 'rgba(255,255,255,0.12)' },
+  rankBoxMe: { backgroundColor: 'rgba(255,255,255,0.2)' },
+  rowAvatarMe: { backgroundColor: 'rgba(255,255,255,0.2)' },
   youBadge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#aaa',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    fontSize: 10, fontWeight: '700', color: '#aaa',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1,
   },
   viewRankBtn: {
-    gap: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderColor: 'rgba(255,255,255,0.15)',
+    gap: 8, flexDirection: 'row', alignItems: 'center', borderRadius: 14,
+    padding: 14, borderWidth: 1, justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.15)',
   },
-  viewRank: {
-    fontWeight: '700',
-    color: 'white',
-    fontSize: 15,
-  },
+  viewRank: { fontWeight: '700', color: 'white', fontSize: 15 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#1a1a1a', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 48, gap: 12, alignItems: 'center', borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  sheet: {
+    backgroundColor: '#1a1a1a', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 24, paddingBottom: 48, gap: 12, alignItems: 'center',
+    borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+  },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: 8 },
-  cardAvatar: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)', marginBottom: 4 },
+  cardAvatar: {
+    width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)', marginBottom: 4,
+  },
   cardName: { fontWeight: '900', fontSize: 22, color: 'white', textAlign: 'center' },
   cardPosition: { fontSize: 13, color: '#888', fontWeight: '500' },
-  cardStats: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 24, gap: 0, width: '100%', marginTop: 8 },
+  cardStats: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16,
+    paddingVertical: 16, paddingHorizontal: 24, width: '100%', marginTop: 8,
+  },
   cardStat: { flex: 1, alignItems: 'center', gap: 4 },
   cardStatVal: { fontWeight: '800', fontSize: 20, color: 'white' },
   cardStatLab: { fontSize: 11, color: '#888', fontWeight: '500' },
   cardDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.1)' },
-  closeBtn: { width: '100%', padding: 14, borderRadius: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginTop: 4 },
+  cardExtraRow: { flexDirection: 'row', width: '100%', gap: 8 },
+  cardExtra: {
+    flex: 1, alignItems: 'center', gap: 4, paddingVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  cardExtraVal: { fontWeight: '700', fontSize: 16, color: 'white' },
+  cardExtraLab: { fontSize: 11, color: '#666', fontWeight: '500' },
+  closeBtn: {
+    width: '100%', padding: 14, borderRadius: 24, alignItems: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginTop: 4,
+  },
   closeBtnText: { fontWeight: '600', color: '#666', fontSize: 15 },
-})
+});

@@ -2,12 +2,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '@/lib/auth-context';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
 
   const handleSignIn = async () => {
     setError('');
@@ -18,8 +20,20 @@ export default function SignInScreen() {
     }
 
     setLoading(true);
-    router.push('/(tabs)');
-    setLoading(false);
+    try {
+      await login(email.trim().toLowerCase(), pass);
+      // AuthGate in _layout.tsx handles routing based on role automatically
+    } catch (err: any) {
+      if (err.code === 'INVALID_CREDENTIALS') {
+        setError('Invalid email or password.');
+      } else if (err.code === 'EMAIL_NOT_VERIFIED') {
+        router.push({ pathname: '/verification', params: { email: email.trim().toLowerCase() } });
+      } else {
+        setError(err.message ?? 'Something went wrong. Try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,7 +48,7 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
         >
 
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/')}>
             <Text style={styles.back}>←</Text>
           </TouchableOpacity>
 

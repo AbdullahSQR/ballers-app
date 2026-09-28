@@ -43,6 +43,9 @@ export const roles: Record<string, { question: string; options: RoleOption[] }> 
   },
 };
 
+// Questions shown after position + playstyle + alternative-position steps
+// Removed: "How far are you willing to travel?" (replaced by GPS location)
+//          "Friends or new players?" (least impactful preference)
 export const questions: Question[] = [
   {
     question: "What is your main playing position?",
@@ -72,16 +75,6 @@ export const questions: Question[] = [
   {
     question: 'What time of day do you prefer to play?',
     options: ['Morning', 'Afternoon', 'Evening'],
-    type: 'standard',
-  },
-  {
-    question: 'How far are you willing to travel?',
-    options: ['1 to 3 km', '5 km', '10+ km'],
-    type: 'standard',
-  },
-  {
-    question: 'Friends or new players?',
-    options: ['Friends', 'New players', 'Both'],
     type: 'standard',
   },
   {

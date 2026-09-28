@@ -1,22 +1,52 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import api from '@/lib/api';
 
 export default function VerificationScreen() {
   const [loading, setLoading] = useState(false);
   const [resent, setResent] = useState(false);
   const [error, setError] = useState('');
+  const { email } = useLocalSearchParams<{ email: string }>();
 
-  const checkVerification = () => {
+  const checkVerification = async () => {
+    if (!email) {
+      setError('Email not found. Please go back and try again.');
+      return;
+    }
     setLoading(true);
-    router.push('/questions' as any);
-    setLoading(false);
+    setError('');
+    try {
+      // Try to resend — if ALREADY_VERIFIED, email is confirmed
+      await api.post('/auth/resend-verification', { email });
+      // If it didn't throw, email is NOT verified yet (a new link was sent)
+      setError('Not verified yet. We just sent you a fresh link — check your inbox.');
+    } catch (err: any) {
+      if (err.code === 'ALREADY_VERIFIED') {
+        // Email is verified — send to sign in
+        router.replace('/signin');
+      } else {
+        setError(err.message ?? 'Something went wrong. Try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const resendEmail = () => {
-    setResent(true);
+  const resendEmail = async () => {
+    if (!email) {
+      setError('Email not found. Please go back and try again.');
+      return;
+    }
+    setError('');
+    try {
+      await api.post('/auth/resend-verification', { email });
+      setResent(true);
+    } catch (err: any) {
+      setError(err.message ?? 'Failed to resend. Try again.');
+    }
   };
 
   return (
@@ -48,6 +78,7 @@ export default function VerificationScreen() {
           <TouchableOpacity style={styles.submitBtn} onPress={checkVerification} disabled={loading}>
             <Text style={styles.submit}>{loading ? 'Checking...' : "I've Verified My Email"}</Text>
           </TouchableOpacity>
+
 
           <TouchableOpacity style={styles.resendBtn} onPress={resendEmail}>
             <Text style={styles.resend}>Send Again</Text>
