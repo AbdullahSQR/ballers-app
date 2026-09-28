@@ -1,78 +1,188 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { POSITIONS, POS_SHORT } from '../lib/constants';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useAuth } from '@/lib/auth-context';
+import api from '@/lib/api';
 
-type Member = { id: number; name: string; position: string; ovr: number; captain?: boolean };
-type Team = { id: number; name: string; ovr: number; wins: number; draws: number; losses: number; captain: boolean; formed: string; matchesPlayed: number; members: Member[] };
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const teamsData: { [key: string]: Team } = {
-  '1': {
-    id: 1, name: 'FC Wolves', ovr: 88.4, wins: 12, draws: 3, losses: 5,
-    captain: true, formed: 'January 2024', matchesPlayed: 20,
-    members: [
-      { id: 1, name: 'Pedri Gonzalez', position: 'Midfielder', ovr: 93.3, captain: true },
-      { id: 2, name: 'Ahmed Al Balushi', position: 'Forward', ovr: 88.1 },
-      { id: 3, name: 'Khalid Al Farsi', position: 'Defender', ovr: 85.6 },
-      { id: 4, name: 'Omar Al Rashdi', position: 'Goalkeeper', ovr: 87.2 },
-      { id: 5, name: 'Salim Al Habsi', position: 'Midfielder', ovr: 84.9 },
-    ],
-  },
-  '2': {
-    id: 2, name: 'Desert Eagles', ovr: 85.1, wins: 7, draws: 5, losses: 8,
-    captain: false, formed: 'March 2024', matchesPlayed: 20,
-    members: [
-      { id: 1, name: 'Faisal Al Maqbali', position: 'Forward', ovr: 91.0, captain: true },
-      { id: 2, name: 'Pedri Gonzalez', position: 'Midfielder', ovr: 93.3 },
-      { id: 3, name: 'Tariq Al Siyabi', position: 'Defender', ovr: 82.4 },
-    ],
-  },
+const POSITION_LABELS: Record<string, string> = {
+  GK: 'Goalkeeper', DEF: 'Defender', MID: 'Midfielder', ATT: 'Forward',
 };
 
+type TeamMember = {
+  user: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+    player_profile: { position: string; ovr: number } | null;
+  };
+};
 
+type Team = {
+  id: string;
+  name: string;
+  ovr: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  captain_id: string;
+  captain: { id: string; username: string; avatar_url: string | null };
+  members: TeamMember[];
+  created_at: string;
+};
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function TeamDetailsScreen() {
-  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
-  const team = teamsData[id];
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
 
+  const [team, setTeam] = useState<Team | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Invite modal
   const [showInvite, setShowInvite] = useState(false);
   const [inviteUsername, setInviteUsername] = useState('');
-  const [invitePosition, setInvitePosition] = useState('Midfielder');
   const [inviteDone, setInviteDone] = useState(false);
+  const [inviting, setInviting] = useState(false);
 
-  const [showLeave, setShowLeave] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  // Member card modal
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
 
-  const closeInvite = () => { setShowInvite(false); setInviteUsername(''); setInvitePosition('Midfielder'); setInviteDone(false); };
+  // ── Fetch ─────────────────────────────────────────────────────────────────
 
-  if (!team) {
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await api.get(`/teams/${id}`);
+        setTeam(res.data.data);
+      } catch (err: any) {
+        Alert.alert('Error', err.message ?? 'Could not load team.');
+        router.back();
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [id]);
+
+  // ── Computed ──────────────────────────────────────────────────────────────
+
+  const isCaptain = team ? team.captain_id === user?.id : false;
+  const matchesPlayed = team ? team.wins + team.draws + team.losses : 0;
+  const winRate = matchesPlayed > 0 ? Math.round((team!.wins / matchesPlayed) * 100) : 0;
+
+  // ── Invite ────────────────────────────────────────────────────────────────
+
+  const handleInvite = async () => {
+    if (!inviteUsername.trim() || !id) return;
+    setInviting(true);
+    try {
+      await api.post(`/teams/${id}/members`, { username: inviteUsername.trim() });
+      setInviteDone(true);
+      // refresh
+      const res = await api.get(`/teams/${id}`);
+      setTeam(res.data.data);
+    } catch (err: any) {
+      Alert.alert(
+        'Error',
+        err.code === 'USER_NOT_FOUND' ? 'Player not found.' :
+        err.code === 'ALREADY_MEMBER' ? 'That player is already in your team.' :
+        err.message ?? 'Could not add player.'
+      );
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const closeInvite = () => {
+    setShowInvite(false);
+    setInviteUsername('');
+    setInviteDone(false);
+    setInviting(false);
+  };
+
+  // ── Leave ─────────────────────────────────────────────────────────────────
+
+  const confirmLeave = () => {
+    Alert.alert(
+      'Leave Team',
+      `Are you sure you want to leave ${team?.name}? You'll need to be re-added to rejoin.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/teams/${id}/leave`);
+              router.back();
+            } catch (err: any) {
+              Alert.alert('Error', err.message ?? 'Could not leave team.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ── Remove member (captain only) ──────────────────────────────────────────
+
+  const confirmRemove = (member: TeamMember) => {
+    if (!isCaptain || member.user.id === user?.id) return;
+    Alert.alert(
+      'Remove Member',
+      `Remove ${member.user.username} from the team?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/teams/${id}/members/${member.user.id}`);
+              const res = await api.get(`/teams/${id}`);
+              setTeam(res.data.data);
+              setSelectedMember(null);
+            } catch (err: any) {
+              Alert.alert('Error', err.message ?? 'Could not remove member.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  if (loading) {
     return (
-      <LinearGradient colors={['#2a2a2a', '#000000']} style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Text style={styles.back}>←</Text>
-          </TouchableOpacity>
-          <View style={styles.teamHeader}>
-            <View style={styles.teamIcon}>
-              <Ionicons name="shield" size={40} color="white" />
-            </View>
-            <Text style={styles.teamName}>{name ?? 'New Team'}</Text>
-            <View style={styles.capBadge}><Text style={styles.capBadgeText}>Captain</Text></View>
-            <Text style={styles.formed}>Just created</Text>
-          </View>
-          <View style={styles.emptyTeam}>
-            <Ionicons name="people-outline" size={44} color="#333" />
-            <Text style={styles.emptyTitle}>No members yet</Text>
-            <Text style={styles.emptySub}>Go back to your teams and invite players to get started.</Text>
-          </View>
-        </ScrollView>
+      <LinearGradient colors={['#2a2a2a', '#000000']} style={styles.center}>
+        <ActivityIndicator color="#FFD700" size="large" />
       </LinearGradient>
     );
   }
 
-  const winRate = Math.round((team.wins / team.matchesPlayed) * 100);
+  if (!team) return null;
+
+  const formed = new Date(team.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
   return (
     <LinearGradient colors={['#2a2a2a', '#000000']} style={styles.container}>
@@ -84,22 +194,24 @@ export default function TeamDetailsScreen() {
           <Text style={styles.back}>←</Text>
         </TouchableOpacity>
 
+        {/* Header */}
         <View style={styles.teamHeader}>
           <View style={styles.teamIcon}>
             <Ionicons name="shield" size={40} color="white" />
           </View>
           <View style={styles.nameRow}>
             <Text style={styles.teamName}>{team.name}</Text>
-            {team.captain && (
+            {isCaptain && (
               <View style={styles.capBadge}>
                 <Text style={styles.capBadgeText}>Captain</Text>
               </View>
             )}
           </View>
-          <Text style={styles.ovr}>{team.ovr} OVR</Text>
-          <Text style={styles.formed}>Formed {team.formed}</Text>
+          <Text style={styles.ovr}>{team.ovr.toFixed(1)} OVR</Text>
+          <Text style={styles.formed}>Formed {formed}</Text>
         </View>
 
+        {/* Stats */}
         <View style={styles.stats}>
           <View style={styles.statBox}>
             <Text style={styles.statVal}>{team.wins}</Text>
@@ -122,6 +234,7 @@ export default function TeamDetailsScreen() {
           </View>
         </View>
 
+        {/* Members */}
         <View style={styles.section}>
           <View style={styles.secHeader}>
             <Text style={styles.secTitle}>Members</Text>
@@ -131,33 +244,44 @@ export default function TeamDetailsScreen() {
             <View style={[styles.progFill, { width: `${(team.members.length / 12) * 100}%` }]} />
           </View>
           <View style={styles.memList}>
-            {team.members.map((member) => (
-              <TouchableOpacity key={member.id} style={styles.memRow} activeOpacity={0.7} onPress={() => setSelectedMember(member)}>
-                <View style={styles.memAvatar}>
-                  <Ionicons name="person" size={18} color="white" />
-                </View>
-                <View style={styles.memInfo}>
-                  <View style={styles.memNameRow}>
-                    <Text style={styles.memName}>{member.name}</Text>
-                    {member.captain && <Ionicons name="star" size={12} color="#FFD700" />}
+            {team.members.map((m) => {
+              const isCapt = m.user.id === team.captain_id;
+              const pos = m.user.player_profile?.position;
+              const ovr = m.user.player_profile?.ovr;
+              return (
+                <TouchableOpacity
+                  key={m.user.id}
+                  style={styles.memRow}
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedMember(m)}
+                >
+                  <View style={styles.memAvatar}>
+                    <Ionicons name="person" size={18} color="white" />
                   </View>
-                  <Text style={styles.memPos}>{member.position}</Text>
-                </View>
-                <Text style={styles.memOvr}>{member.ovr} OVR</Text>
-              </TouchableOpacity>
-            ))}
+                  <View style={styles.memInfo}>
+                    <View style={styles.memNameRow}>
+                      <Text style={styles.memName}>{m.user.username}</Text>
+                      {isCapt && <Ionicons name="star" size={12} color="#FFD700" />}
+                    </View>
+                    <Text style={styles.memPos}>{pos ? POSITION_LABELS[pos] ?? pos : 'Unknown'}</Text>
+                  </View>
+                  <Text style={styles.memOvr}>{ovr ?? '—'} OVR</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
+        {/* Actions */}
         <View style={styles.actions}>
-          {team.captain && (
+          {isCaptain && (
             <TouchableOpacity style={styles.inviteBtn} onPress={() => setShowInvite(true)}>
               <Ionicons name="person-add-outline" size={18} color="white" />
               <Text style={styles.invite}>Invite Player</Text>
             </TouchableOpacity>
           )}
-          {!team.captain && (
-            <TouchableOpacity style={styles.leaveBtn} onPress={() => setShowLeave(true)}>
+          {!isCaptain && (
+            <TouchableOpacity style={styles.leaveBtn} onPress={confirmLeave}>
               <Text style={styles.leave}>Leave Team</Text>
             </TouchableOpacity>
           )}
@@ -165,7 +289,7 @@ export default function TeamDetailsScreen() {
 
       </ScrollView>
 
-      {/* Invite Player Modal */}
+      {/* ── Invite Modal ── */}
       <Modal visible={showInvite} transparent animationType="slide">
         <View style={styles.overlay}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -187,24 +311,15 @@ export default function TeamDetailsScreen() {
                       autoFocus
                     />
                   </View>
-                  <Text style={styles.fieldLabel}>Position</Text>
-                  <View style={styles.posRow}>
-                    {POSITIONS.map((p) => (
-                      <TouchableOpacity
-                        key={p}
-                        style={[styles.posChip, invitePosition === p && styles.posChipOn]}
-                        onPress={() => setInvitePosition(p)}
-                      >
-                        <Text style={[styles.posText, invitePosition === p && { color: 'white' }]}>{POS_SHORT[p]}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
                   <TouchableOpacity
-                    style={[styles.primaryBtn, !inviteUsername.trim() && { opacity: 0.3 }]}
-                    onPress={() => { if (inviteUsername.trim()) setInviteDone(true); }}
-                    disabled={!inviteUsername.trim()}
+                    style={[styles.primaryBtn, (!inviteUsername.trim() || inviting) && { opacity: 0.3 }]}
+                    onPress={handleInvite}
+                    disabled={!inviteUsername.trim() || inviting}
                   >
-                    <Text style={styles.primaryText}>Send Invite</Text>
+                    {inviting
+                      ? <ActivityIndicator color="black" />
+                      : <Text style={styles.primaryText}>Add to Team</Text>
+                    }
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.secBtn} onPress={closeInvite}>
                     <Text style={styles.secText}>Cancel</Text>
@@ -215,8 +330,8 @@ export default function TeamDetailsScreen() {
                   <View style={styles.successIcon}>
                     <Ionicons name="checkmark" size={32} color="white" />
                   </View>
-                  <Text style={styles.sheetTitle}>Invite Sent!</Text>
-                  <Text style={styles.sheetSub}>{inviteUsername} will get a notification to join your team.</Text>
+                  <Text style={styles.sheetTitle}>Player Added!</Text>
+                  <Text style={styles.sheetSub}>{inviteUsername} has been added to the team.</Text>
                   <TouchableOpacity style={styles.primaryBtn} onPress={closeInvite}>
                     <Text style={styles.primaryText}>Done</Text>
                   </TouchableOpacity>
@@ -227,63 +342,55 @@ export default function TeamDetailsScreen() {
         </View>
       </Modal>
 
-      {/* Leave Team Confirmation Modal */}
-      <Modal visible={showLeave} transparent animationType="fade">
-        <View style={styles.overlay}>
-          <View style={[styles.sheet, { gap: 16 }]}>
-            <View style={styles.handle} />
-            <Text style={styles.sheetTitle}>Leave Team?</Text>
-            <Text style={styles.sheetSub}>
-              Are you sure you want to leave <Text style={{ color: 'white', fontWeight: '700' }}>{team.name}</Text>? You'll need to be re-invited to rejoin.
-            </Text>
-            <TouchableOpacity style={styles.leaveConfirmBtn} onPress={() => { setShowLeave(false); router.back(); }}>
-              <Text style={styles.leaveConfirmText}>Yes, Leave Team</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secBtn} onPress={() => setShowLeave(false)}>
-              <Text style={styles.secText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Member Card Modal */}
+      {/* ── Member Card Modal ── */}
       <Modal visible={!!selectedMember} transparent animationType="slide">
         <View style={styles.overlay}>
           <View style={[styles.sheet, { alignItems: 'center' }]}>
             <View style={styles.handle} />
-            {selectedMember && (
-              <>
-                <View style={styles.memberCardAvatar}>
-                  <Ionicons name="person" size={36} color="white" />
-                  {selectedMember.captain && (
-                    <View style={styles.captainBadge}>
-                      <Ionicons name="star" size={10} color="#FFD700" />
+            {selectedMember && (() => {
+              const m = selectedMember;
+              const isCapt = m.user.id === team.captain_id;
+              const pos = m.user.player_profile?.position;
+              const ovr = m.user.player_profile?.ovr;
+              return (
+                <>
+                  <View style={styles.memberCardAvatar}>
+                    <Ionicons name="person" size={36} color="white" />
+                    {isCapt && (
+                      <View style={styles.captainBadge}>
+                        <Ionicons name="star" size={10} color="#FFD700" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.sheetTitle}>{m.user.username}</Text>
+                  <Text style={styles.sheetSub}>{pos ? POSITION_LABELS[pos] ?? pos : 'Unknown position'}</Text>
+                  <View style={styles.memberCardStats}>
+                    <View style={styles.memberCardStat}>
+                      <Text style={styles.memberCardVal}>{ovr ?? '—'}</Text>
+                      <Text style={styles.memberCardLab}>OVR</Text>
                     </View>
+                    <View style={styles.statDiv} />
+                    <View style={styles.memberCardStat}>
+                      <Text style={styles.memberCardVal}>{pos ?? '—'}</Text>
+                      <Text style={styles.memberCardLab}>Position</Text>
+                    </View>
+                    <View style={styles.statDiv} />
+                    <View style={styles.memberCardStat}>
+                      <Text style={styles.memberCardVal}>{isCapt ? 'Yes' : 'No'}</Text>
+                      <Text style={styles.memberCardLab}>Captain</Text>
+                    </View>
+                  </View>
+                  {isCaptain && m.user.id !== user?.id && (
+                    <TouchableOpacity style={styles.removeFromTeamBtn} onPress={() => confirmRemove(m)}>
+                      <Text style={styles.removeFromTeamText}>Remove from Team</Text>
+                    </TouchableOpacity>
                   )}
-                </View>
-                <Text style={styles.sheetTitle}>{selectedMember.name}</Text>
-                <Text style={styles.sheetSub}>{selectedMember.position}</Text>
-                <View style={styles.memberCardStats}>
-                  <View style={styles.memberCardStat}>
-                    <Text style={styles.memberCardVal}>{selectedMember.ovr}</Text>
-                    <Text style={styles.memberCardLab}>OVR</Text>
-                  </View>
-                  <View style={styles.statDiv} />
-                  <View style={styles.memberCardStat}>
-                    <Text style={styles.memberCardVal}>{POS_SHORT[selectedMember.position]}</Text>
-                    <Text style={styles.memberCardLab}>Position</Text>
-                  </View>
-                  <View style={styles.statDiv} />
-                  <View style={styles.memberCardStat}>
-                    <Text style={styles.memberCardVal}>{selectedMember.captain ? 'Yes' : 'No'}</Text>
-                    <Text style={styles.memberCardLab}>Captain</Text>
-                  </View>
-                </View>
-                <TouchableOpacity style={[styles.secBtn, { width: '100%' }]} onPress={() => setSelectedMember(null)}>
-                  <Text style={styles.secText}>Close</Text>
-                </TouchableOpacity>
-              </>
-            )}
+                  <TouchableOpacity style={[styles.secBtn, { width: '100%' }]} onPress={() => setSelectedMember(null)}>
+                    <Text style={styles.secText}>Close</Text>
+                  </TouchableOpacity>
+                </>
+              );
+            })()}
           </View>
         </View>
       </Modal>
@@ -292,8 +399,11 @@ export default function TeamDetailsScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { paddingTop: 60, paddingHorizontal: 22, gap: 16, paddingBottom: 110 },
   backBtn: { marginBottom: 8 },
   back: { fontSize: 24, color: 'white' },
@@ -329,32 +439,24 @@ const styles = StyleSheet.create({
   invite: { fontSize: 15, color: 'white', fontWeight: '600' },
   leaveBtn: { padding: 14, alignItems: 'center', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,0,0,0.3)' },
   leave: { fontSize: 15, fontWeight: '600', color: '#ff6b6b' },
-  emptyTeam: { alignItems: 'center', paddingVertical: 60, gap: 12 },
-  emptyTitle: { fontWeight: '800', color: '#555', fontSize: 18 },
-  emptySub: { color: '#444', fontSize: 13, textAlign: 'center', lineHeight: 20, paddingHorizontal: 16 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: '#1a1a1a', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 48, gap: 14, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', marginBottom: 8 },
   sheetTitle: { fontWeight: '900', fontSize: 22, color: 'white' },
   sheetSub: { color: '#666', fontSize: 13, lineHeight: 20 },
-  fieldLabel: { fontWeight: '700', fontSize: 12, color: '#666', textTransform: 'uppercase', letterSpacing: 0.5 },
   inputWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)' },
   input: { flex: 1, color: 'white', fontSize: 15 },
-  posRow: { flexDirection: 'row', gap: 8 },
-  posChip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.05)' },
-  posChipOn: { borderColor: 'rgba(255,255,255,0.4)', backgroundColor: 'rgba(255,255,255,0.15)' },
-  posText: { fontWeight: '700', fontSize: 12, color: '#555' },
   primaryBtn: { padding: 16, borderRadius: 24, alignItems: 'center', backgroundColor: 'white' },
   primaryText: { fontWeight: '800', fontSize: 16, color: 'black' },
   secBtn: { padding: 14, borderRadius: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   secText: { fontWeight: '600', color: '#666', fontSize: 15 },
   successIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginBottom: 4 },
-  leaveConfirmBtn: { padding: 16, borderRadius: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,80,80,0.3)', backgroundColor: 'rgba(255,80,80,0.1)' },
-  leaveConfirmText: { fontWeight: '700', color: '#ff6b6b', fontSize: 15 },
   memberCardAvatar: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)', marginBottom: 4, position: 'relative' },
   captainBadge: { position: 'absolute', bottom: 2, right: 2, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,215,0,0.2)', borderWidth: 1, borderColor: 'rgba(255,215,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   memberCardStats: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 24, width: '100%', marginTop: 4 },
   memberCardStat: { flex: 1, alignItems: 'center', gap: 4 },
   memberCardVal: { fontWeight: '800', fontSize: 20, color: 'white' },
   memberCardLab: { fontSize: 11, color: '#888', fontWeight: '500' },
+  removeFromTeamBtn: { width: '100%', padding: 14, borderRadius: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,80,80,0.3)', backgroundColor: 'rgba(255,80,80,0.08)' },
+  removeFromTeamText: { fontWeight: '700', color: '#ff6b6b', fontSize: 14 },
 });

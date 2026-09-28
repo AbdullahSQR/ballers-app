@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
+import api from '@/lib/api';
 
 export default function RegisterScreen() {
   const [user, setUser] = useState('');
@@ -15,7 +15,7 @@ export default function RegisterScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     setError('');
 
     if (!user || !email || !pass || !confirm || !day || !month || !year) {
@@ -32,8 +32,25 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
-    router.push('/verification');
-    setLoading(false);
+    try {
+      await api.post('/auth/register', {
+        username: user.trim(),
+        email: email.trim().toLowerCase(),
+        password: pass,
+      });
+      // Pass email to verification screen so it can resend if needed
+      router.push({ pathname: '/verification', params: { email: email.trim().toLowerCase() } });
+    } catch (err: any) {
+      if (err.code === 'EMAIL_TAKEN') {
+        setError('This email is already registered.');
+      } else if (err.code === 'USERNAME_TAKEN') {
+        setError('This username is already taken.');
+      } else {
+        setError(err.message ?? 'Something went wrong. Try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

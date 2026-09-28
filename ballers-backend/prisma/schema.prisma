@@ -1,0 +1,298 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  player
+  stadium_manager
+  admin
+}
+
+enum Position {
+  GK
+  DEF
+  MID
+  ATT
+}
+
+enum SkillLevel {
+  beginner
+  intermediate
+  advanced
+}
+
+enum MatchType {
+  open
+  friendly
+  team_vs_team
+}
+
+enum MatchStatus {
+  pending
+  filling
+  ready
+  completed
+  cancelled
+}
+
+enum TeamSide {
+  home
+  away
+}
+
+enum InvitationType {
+  team_invite
+  match_invite
+  team_challenge
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  declined
+  expired
+}
+
+enum TimeSlotStatus {
+  available
+  booked
+  blocked
+}
+
+enum NotificationType {
+  match_invite
+  team_invite
+  match_filled
+  challenge
+  system
+}
+
+enum ApplicationStatus {
+  pending
+  approved
+  rejected
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  password_hash      String
+  username           String   @unique
+  role               Role     @default(player)
+  email_verified     Boolean  @default(false)
+  verification_token String?
+  avatar_url         String?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  // Relations
+  player_profile            PlayerProfile?
+  teams_as_captain          Team[]                     @relation("TeamCaptain")
+  team_memberships          TeamMember[]
+  created_matches           Match[]                    @relation("MatchCreator")
+  match_participations      MatchParticipant[]
+  sent_invitations          Invitation[]               @relation("InvitationSender")
+  received_invitations      Invitation[]               @relation("InvitationRecipient")
+  notifications             Notification[]
+  managed_stadium           Stadium?                   @relation("StadiumManager")
+  stadium_applications      StadiumManagerApplication[] @relation("Applicant")
+  reviewed_applications     StadiumManagerApplication[] @relation("Reviewer")
+  ratings_given             MatchRating[]              @relation("RatingGiver")
+  ratings_received          MatchRating[]              @relation("RatingReceiver")
+}
+
+model PlayerProfile {
+  id                   String     @id @default(uuid())
+  user_id              String     @unique
+  position             Position
+  alternative_position Position?
+  skill_level          SkillLevel
+  availability         Json
+  playstyle            String
+  goals                String
+  latitude             Float?
+  longitude            Float?
+  ovr                  Int        @default(70)
+  matches_played       Int        @default(0)
+  wins                 Int        @default(0)
+  draws                Int        @default(0)
+  losses               Int        @default(0)
+  goals_scored         Int        @default(0)
+  created_at           DateTime   @default(now())
+  updated_at           DateTime   @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id         String   @id @default(uuid())
+  name       String
+  captain_id String
+  logo_url   String?
+  ovr        Int      @default(70)
+  wins       Int      @default(0)
+  draws      Int      @default(0)
+  losses     Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  captain          User             @relation("TeamCaptain", fields: [captain_id], references: [id])
+  members          TeamMember[]
+  home_matches     Match[]          @relation("HomeTeam")
+  away_matches     Match[]          @relation("AwayTeam")
+  sent_challenges  Invitation[]     @relation("ChallengeTeam")
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  team_id   String
+  user_id   String
+  joined_at DateTime @default(now())
+
+  team Team @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([team_id, user_id])
+}
+
+model Match {
+  id           String      @id @default(uuid())
+  creator_id   String
+  stadium_id   String?
+  time_slot_id String?     @unique
+  match_type   MatchType
+  status       MatchStatus @default(pending)
+  scheduled_at DateTime
+  max_players  Int         @default(14)
+  home_team_id String?
+  away_team_id String?
+  home_score   Int?
+  away_score   Int?
+  created_at   DateTime    @default(now())
+  updated_at   DateTime    @updatedAt
+
+  creator      User               @relation("MatchCreator", fields: [creator_id], references: [id])
+  stadium      Stadium?           @relation(fields: [stadium_id], references: [id])
+  time_slot    TimeSlot?          @relation(fields: [time_slot_id], references: [id])
+  home_team    Team?              @relation("HomeTeam", fields: [home_team_id], references: [id])
+  away_team    Team?              @relation("AwayTeam", fields: [away_team_id], references: [id])
+  participants MatchParticipant[]
+  invitations  Invitation[]
+  ratings      MatchRating[]
+}
+
+model MatchParticipant {
+  id              String    @id @default(uuid())
+  match_id        String
+  user_id         String
+  team_side       TeamSide
+  position_played Position
+  goals_scored    Int       @default(0)
+  match_rating    Int?
+
+  match Match @relation(fields: [match_id], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([match_id, user_id])
+}
+
+model Invitation {
+  id           String           @id @default(uuid())
+  type         InvitationType
+  sender_id    String
+  recipient_id String
+  team_id      String?
+  match_id     String?
+  status       InvitationStatus @default(pending)
+  created_at   DateTime         @default(now())
+  responded_at DateTime?
+
+  sender    User   @relation("InvitationSender", fields: [sender_id], references: [id])
+  recipient User   @relation("InvitationRecipient", fields: [recipient_id], references: [id])
+  team      Team?  @relation("ChallengeTeam", fields: [team_id], references: [id])
+  match     Match? @relation(fields: [match_id], references: [id])
+}
+
+model Stadium {
+  id          String   @id @default(uuid())
+  name        String
+  manager_id  String?  @unique
+  address     String
+  latitude    Decimal
+  longitude   Decimal
+  description String?
+  photo_url   String?
+  is_approved Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  manager    User?      @relation("StadiumManager", fields: [manager_id], references: [id])
+  time_slots TimeSlot[]
+  matches    Match[]
+}
+
+model TimeSlot {
+  id         String         @id @default(uuid())
+  stadium_id String
+  start_time DateTime
+  end_time   DateTime
+  status     TimeSlotStatus @default(available)
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+
+  stadium Stadium @relation(fields: [stadium_id], references: [id], onDelete: Cascade)
+  match   Match?
+}
+
+model MatchRating {
+  id         String   @id @default(uuid())
+  match_id   String
+  rater_id   String
+  rated_id   String
+  rating     Int
+  created_at DateTime @default(now())
+
+  match Match @relation(fields: [match_id], references: [id], onDelete: Cascade)
+  rater User  @relation("RatingGiver", fields: [rater_id], references: [id])
+  rated User  @relation("RatingReceiver", fields: [rated_id], references: [id])
+
+  @@unique([match_id, rater_id, rated_id])
+}
+
+model Notification {
+  id                String           @id @default(uuid())
+  user_id           String
+  type              NotificationType
+  title             String
+  body              String
+  is_read           Boolean          @default(false)
+  related_entity_id String?
+  created_at        DateTime         @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model StadiumManagerApplication {
+  id               String            @id @default(uuid())
+  user_id          String
+  stadium_name     String
+  proposed_address String
+  phone_number     String?
+  stadium_type     String?
+  notes            String?
+  status           ApplicationStatus @default(pending)
+  reviewed_by      String?
+  created_at       DateTime          @default(now())
+  reviewed_at      DateTime?
+
+  applicant User  @relation("Applicant", fields: [user_id], references: [id])
+  reviewer  User? @relation("Reviewer", fields: [reviewed_by], references: [id])
+}

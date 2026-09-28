@@ -40,6 +40,12 @@ export default function LandingScreen() {
             <Text style={styles.loginLink}>Log in</Text>
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/apply-stadium' as any)}>
+          <Text style={styles.applyText}>
+            Own a stadium?{' '}
+            <Text style={styles.applyLink}>Apply to partner with us →</Text>
+          </Text>
+        </TouchableOpacity>
       </View>
       <Image
         source={require('../assets/images/messi.png')}
@@ -138,6 +144,15 @@ const styles = StyleSheet.create({
   loginLink: {
     color: '#ffffffc9',
     fontWeight: 'bold',
+  },
+  applyText: {
+    color: '#555',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  applyLink: {
+    color: '#FFD700',
+    fontWeight: '600',
   },
   messiImage: {
     width: width,
